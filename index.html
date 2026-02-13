@@ -1,100 +1,474 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Daycare Website</title>
-  <style>
-    /* ===== RESET ===== */
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    <meta charset="UTF-8">
+    <title>Roblox Style Obby - Stage 2</title>
+    <style>
+        /* --- GLOBAL & UI --- */
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #2980b9, #6dd5fa, #ffffff);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            user-select: none;
+        }
 
-    /* ===== LOADER ===== */
-    #loader {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: #ADD8E61; /* Loader background */
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      z-index: 9999;
-    }
+        #ui {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
 
-    /* Wave animation */
-    .wave {
-      position: absolute;
-      bottom: 0;
-      width: 200%;
-      height: 100%;
-      background: #0000FF;
-      border-radius: 45%;
-      animation: waveMove 3s ease-in-out forwards;
-      transform: translateX(-100%);
-    }
+        #crosshair {
+            width: 8px; height: 8px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            border: 1px solid black;
+        }
 
-    @keyframes waveMove {
-      0% { transform: translateX(-100%) rotate(0deg); }
-      50% { transform: translateX(0) rotate(5deg); }
-      100% { transform: translateX(100%) rotate(0deg); }
-    }
+        #overlay {
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+            border: 2px solid rgba(255,255,255,0.2);
+            pointer-events: auto;
+        }
 
-    #loaderText {
-      position: relative;
-      z-index: 10;
-      font-size: 2rem;
-      color: white;
-      font-weight: bold;
-      text-align: center;
-      opacity: 0;
-      animation: fadeInText 3s forwards;
-    }
+        #win-screen {
+            display: none;
+            background: rgba(46, 204, 113, 0.9);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            border: 4px solid white;
+            pointer-events: auto;
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
 
-    @keyframes fadeInText {
-      0% { opacity: 0; }
-      50% { opacity: 1; }
-      100% { opacity: 1; }
-    }
+        /* Checkpoint Notification */
+        #msg-box {
+            position: absolute;
+            top: 20px;
+            background: rgba(0,0,0,0.7);
+            color: #f1c40f;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
 
-    /* ===== MAIN CONTENT ===== */
-    #mainContent {
-      display: none;
-      padding: 50px;
-      text-align: center;
-      background-color: #fffbe6; /* Change main site background */
-      min-height: 100vh;
-    }
+        @keyframes popIn {
+            from { transform: scale(0.5); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
 
-    #mainContent h1 { color: #ff6f61; font-size: 2.5rem; margin-bottom: 20px; }
-    #mainContent p { color: #333; font-size: 1.2rem; }
-  </style>
+        button.btn {
+            background: white;
+            color: #27ae60;
+            border: none;
+            padding: 10px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            box-shadow: 0 4px #ddd;
+        }
+        button.btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px #ddd;
+        }
+
+        h1 { margin: 0 0 10px 0; text-shadow: 2px 2px 0px #000; font-style: italic; }
+        p { margin: 5px 0; font-size: 1.1em; }
+
+        /* --- 3D VIEWPORT --- */
+        #viewport {
+            perspective: 800px;
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            transform-style: preserve-3d;
+        }
+
+        #world {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform-style: preserve-3d;
+        }
+
+        /* --- CUBES --- */
+        .cube { position: absolute; transform-style: preserve-3d; }
+        .face {
+            position: absolute; box-sizing: border-box; backface-visibility: hidden;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+        .face.top { filter: brightness(1.1); }
+        .face.front { filter: brightness(1.0); }
+        .face.right { filter: brightness(0.8); }
+        .face.left { filter: brightness(0.8); }
+        .face.back { filter: brightness(0.9); }
+        .face.bottom { filter: brightness(0.4); }
+
+        .studs {
+            background-image: 
+                radial-gradient(rgba(0,0,0,0.15) 20%, transparent 25%),
+                radial-gradient(rgba(255,255,255,0.2) 20%, transparent 25%);
+            background-size: 20px 20px;
+            background-position: 0 0, 2px 2px;
+        }
+        .cloud {
+            position: absolute; background: rgba(255,255,255,0.8);
+            border-radius: 50px; filter: blur(10px); transform-style: preserve-3d;
+        }
+    </style>
 </head>
 <body>
 
-  <!-- LOADER -->
-  <div id="loader">
-    <div id="loaderText">Welcome to Little Stars Daycare!</div>
-    <div class="wave"></div>
-  </div>
+    <div id="ui">
+        <div id="msg-box">CHECKPOINT REACHED!</div>
+        
+        <div id="overlay">
+            <h1>OBBY: STAGE 2 ADDED</h1>
+            <p><strong>CLICK TO START</strong></p>
+            <p style="font-size: 0.9em; opacity: 0.8;">WASD to Move &bull; SPACE to Jump</p>
+        </div>
 
-  <!-- MAIN CONTENT -->
-  <div id="mainContent">
-    <h1>Little Stars Daycare</h1>
-    <p>Where learning is fun and every child shines!</p>
-  </div>
+        <div id="win-screen">
+            <h1 style="font-size: 40px; color: yellow;">VICTORY!</h1>
+            <p>You conquered the Spiral Tower!</p>
+            <button class="btn" onclick="restartGame()">Play Again</button>
+        </div>
 
-  <script>
-    // Wait for animation duration then show main content
-    window.addEventListener('load', () => {
-      setTimeout(() => {
-        const loader = document.getElementById('loader');
-        loader.style.display = 'none';
-        document.getElementById('mainContent').style.display = 'block';
-      }, 3000); // Match wave animation duration
+        <div id="crosshair" style="display:none;"></div>
+    </div>
+
+    <div id="viewport">
+        <div id="world"></div>
+    </div>
+
+<script>
+    // --- CONFIG ---
+    const GRAVITY = 0.6;
+    const JUMP_FORCE = 14;
+    const SPEED = 7;
+    const ROT_SPEED = 0.003;
+    
+    // --- STATE ---
+    const world = document.getElementById('world');
+    const overlay = document.getElementById('overlay');
+    const winScreen = document.getElementById('win-screen');
+    const crosshair = document.getElementById('crosshair');
+    const msgBox = document.getElementById('msg-box');
+    
+    let isLocked = false;
+    let isWon = false;
+    let cubes = []; 
+    
+    // Spawn System
+    let spawn = { x: 0, y: 50, z: 0, yaw: 0 };
+    let currentStage = 1;
+
+    // Camera
+    let cam = { x: 0, y: 100, z: 0, yaw: 0, pitch: 0.1, dist: 450 };
+    
+    // Player
+    let player = {
+        x: 0, y: 100, z: 0,
+        vx: 0, vy: 0, vz: 0,
+        w: 24, h: 50, d: 24,
+        grounded: false,
+        el: null, parts: {} 
+    };
+
+    let keys = { w:false, a:false, s:false, d:false, space:false };
+
+    // --- BUILDER ---
+    function createBlock(x, y, z, w, h, d, color, isStudded = true, type = 'solid') {
+        const el = document.createElement('div');
+        el.className = 'cube';
+        const faces = [
+            {t:'front', w,h, tr:`translateZ(${d/2}px)`},
+            {t:'back', w,h, tr:`rotateY(180deg) translateZ(${d/2}px)`},
+            {t:'right', d,h, tr:`rotateY(90deg) translateZ(${w/2}px)`},
+            {t:'left', d,h, tr:`rotateY(-90deg) translateZ(${w/2}px)`},
+            {t:'top', w,d, tr:`rotateX(90deg) translateZ(${h/2}px)`},
+            {t:'bottom', w,d, tr:`rotateX(-90deg) translateZ(${h/2}px)`}
+        ];
+        faces.forEach(f => {
+            const div = document.createElement('div');
+            div.className = `face ${f.t}`;
+            div.style.width = (f.t==='right'||f.t==='left'?d:w) + 'px';
+            div.style.height = (f.t==='top'||f.t==='bottom'?d:h) + 'px';
+            div.style.backgroundColor = color;
+            div.style.transform = f.tr;
+            div.style.left = -(f.t==='right'||f.t==='left'?d:w)/2 + 'px';
+            div.style.top = -(f.t==='top'||f.t==='bottom'?d:h)/2 + 'px';
+            if(f.t === 'top' && isStudded) div.classList.add('studs');
+            el.appendChild(div);
+        });
+        world.appendChild(el);
+        const obj = { x, y, z, w, h, d, el, type };
+        cubes.push(obj);
+        updateBlockVisual(obj);
+        return obj;
+    }
+
+    function updateBlockVisual(b) {
+        b.el.style.transform = `translate3d(${b.x}px, ${-b.y}px, ${b.z}px)`;
+    }
+
+    // --- PLAYER MODEL ---
+    function createPlayerModel() {
+        const root = document.createElement('div');
+        root.className = 'cube';
+        world.appendChild(root);
+        function addLimb(w, h, d, color, parent) {
+            const el = document.createElement('div');
+            el.className = 'cube';
+            const faces = [
+                {t:'front', w, h, tr:`translateZ(${d/2}px)`},
+                {t:'back', w, h, tr:`rotateY(180deg) translateZ(${d/2}px)`},
+                {t:'right', d, h, tr:`rotateY(90deg) translateZ(${w/2}px)`},
+                {t:'left', d, h, tr:`rotateY(-90deg) translateZ(${w/2}px)`},
+                {t:'top', w, d, tr:`rotateX(90deg) translateZ(${h/2}px)`}
+            ];
+            faces.forEach(f => {
+                const div = document.createElement('div');
+                div.className = `face ${f.t}`;
+                div.style.width = (f.t==='right'||f.t==='left'?d:w) + 'px';
+                div.style.height = (f.t==='top'?d:h) + 'px';
+                div.style.backgroundColor = color;
+                div.style.transform = f.tr;
+                div.style.left = -(f.t==='right'||f.t==='left'?d:w)/2 + 'px';
+                div.style.top = -(f.t==='top'?d:h)/2 + 'px';
+                el.appendChild(div);
+            });
+            parent.appendChild(el);
+            return el;
+        }
+        const torso = addLimb(24, 24, 12, '#1abc9c', root); torso.style.transform = `translate3d(0px, -24px, 0px)`; 
+        const head = addLimb(16, 16, 16, '#f1c40f', root); head.style.transform = `translate3d(0px, -46px, 0px)`; 
+        const hair = addLimb(18, 12, 18, '#c0392b', head); hair.style.transform = `translate3d(0px, -10px, 0px)`;
+        const legL = addLimb(10, 24, 10, '#34495e', root); 
+        const legR = addLimb(10, 24, 10, '#34495e', root);
+        const armL = addLimb(8, 22, 8, '#1abc9c', root);
+        const armR = addLimb(8, 22, 8, '#1abc9c', root);
+        player.el = root;
+        player.parts = { legL, legR, armL, armR, head };
+    }
+
+    function updatePlayerAnim(speed) {
+        const t = performance.now() * 0.015;
+        const amp = Math.min(speed * 2, 25); 
+        player.parts.legL.style.transform = `translate3d(-6px, 0px, 0px) rotateX(${Math.sin(t)*amp}deg)`;
+        player.parts.legR.style.transform = `translate3d(6px, 0px, 0px) rotateX(${-Math.sin(t)*amp}deg)`;
+        player.parts.armL.style.transform = `translate3d(-18px, -22px, 0px) rotateX(${-Math.sin(t)*amp}deg)`;
+        player.parts.armR.style.transform = `translate3d(18px, -22px, 0px) rotateX(${Math.sin(t)*amp}deg)`;
+    }
+
+    // --- LEVEL DESIGN ---
+    function buildLevel() {
+        // === STAGE 1: RAINBOW PATH ===
+        createBlock(0, -20, 0, 200, 20, 200, '#ecf0f1'); // Spawn
+        
+        let z = 150;
+        const colors = ['#9b59b6', '#2980b9']; 
+        
+        for(let i=0; i<6; i++) {
+            createBlock((i%2===0 ? -30 : 30), 0, z, 60, 10, 80, colors[i%2]);
+            z += 110; 
+        }
+        createBlock(0, 0, z+40, 200, 20, 100, '#f1c40f'); z += 150;
+
+        const rainbow = ['#e74c3c', '#e67e22', '#f1c40f', '#2ecc71', '#3498db', '#9b59b6'];
+        for(let i=0; i<12; i++) {
+            const col = rainbow[i % rainbow.length];
+            createBlock(0, 0, z, 120, 10, 40, col);
+            createBlock(-65, 60, z, 10, 120, 40, col);
+            createBlock(65, 60, z, 10, 120, 40, col);
+            createBlock(0, 125, z, 120, 10, 40, col);
+            z += 42; 
+        }
+        z += 50;
+        createBlock(0, 0, z+100, 20, 10, 300, '#e74c3c');
+        
+        // CHECKPOINT (Formerly Win) - Green Platform
+        // Type 'checkpoint' triggers spawn update
+        createBlock(0, 10, z+350, 100, 10, 100, '#2ecc71', true, 'checkpoint');
+        
+        // === STAGE 2: LAVA SPIRAL ===
+        let sz = z + 350 + 60; // Start of spiral z
+        let sy = 10;           // Start height
+        let sx = 0;
+        
+        // Bridge to stage 2
+        createBlock(0, 10, sz+50, 40, 10, 200, '#34495e'); 
+        sz += 160;
+
+        // Spiral Base
+        const centerX = 0;
+        const centerZ = sz + 200;
+        const radius = 180;
+        let angle = 0;
+        
+        // Build 20 steps upwards
+        for(let i=0; i<25; i++) {
+            // Calculate spiral position
+            const px = centerX + Math.cos(angle) * radius;
+            const pz = centerZ + Math.sin(angle) * radius;
+            
+            // Lava/Dark Theme
+            // Red blocks are jumps, Black blocks are safe
+            const color = (i % 3 === 0) ? '#c0392b' : '#2c3e50'; 
+            const width = (i % 3 === 0) ? 40 : 60; // Harder jumps are smaller
+            
+            createBlock(px, sy, pz, width, 10, width, color);
+            
+            angle += 0.5; // Turn
+            sy += 40;     // Rise
+        }
+
+        // FINAL WIN PLATFORM (Top of tower)
+        const fx = centerX + Math.cos(angle) * radius;
+        const fz = centerZ + Math.sin(angle) * radius;
+        createBlock(fx, sy, fz, 150, 10, 150, '#f1c40f', true, 'win'); // Gold
+        
+        // Clouds
+        for(let i=0; i<15; i++) {
+            const c = document.createElement('div');
+            c.className = 'cloud';
+            c.style.width = (100 + Math.random()*200) + 'px';
+            c.style.height = (50 + Math.random()*50) + 'px';
+            c.style.transform = `translate3d(${(Math.random()-0.5)*3000}px, ${-300-Math.random()*600}px, ${(Math.random()-0.5)*3000}px) rotateX(90deg)`;
+            world.appendChild(c);
+        }
+    }
+
+    // --- GAME LOGIC ---
+
+    function showMsg(txt) {
+        msgBox.innerText = txt;
+        msgBox.style.opacity = 1;
+        setTimeout(() => { msgBox.style.opacity = 0; }, 2000);
+    }
+
+    function reset() {
+        // Respawn at current checkpoint
+        player.x = spawn.x; 
+        player.y = spawn.y + 50; // Drop in slightly 
+        player.z = spawn.z;
+        player.vx = 0; player.vy = 0; player.vz = 0;
+        cam.yaw = spawn.yaw; 
+        cam.pitch = 0.1;
+    }
+
+    function restartGame() {
+        isWon = false;
+        currentStage = 1;
+        spawn = { x: 0, y: 50, z: 0, yaw: 0 }; // Full reset
+        winScreen.style.display = 'none';
+        crosshair.style.display = 'block';
+        reset();
+        document.body.requestPointerLock();
+        loop(); 
+    }
+
+    function loop() {
+        if(isWon) return; 
+
+        // Void Detection
+        if (player.y < -300) reset(); 
+
+        // Input & Movement
+        let moveX = 0, moveZ = 0;
+        if(keys.w) moveZ -= 1;
+        if(keys.s) moveZ += 1;
+        if(keys.a) moveX -= 1;
+        if(keys.d) moveX += 1;
+
+        if(moveX!=0 || moveZ!=0) {
+            const angle = Math.atan2(moveX, moveZ) + cam.yaw; 
+            player.vx = Math.sin(angle) * SPEED;
+            player.vz = Math.cos(angle) * SPEED;
+            player.el.style.transform = `translate3d(${player.x}px, ${-player.y}px, ${player.z}px) rotateY(${angle}rad)`;
+            updatePlayerAnim(SPEED);
+        } else {
+            player.vx *= 0.8; player.vz *= 0.8;
+            player.el.style.transform = `translate3d(${player.x}px, ${-player.y}px, ${player.z}px) rotateY(${cam.yaw}rad)`; 
+            updatePlayerAnim(0);
+        }
+
+        // Physics
+        player.vy -= GRAVITY;
+        if(keys.space && player.grounded) { player.vy = JUMP_FORCE; player.grounded = false; }
+        player.grounded = false;
+        
+        player.x += player.vx;
+        cubes.forEach(b => { if(checkCol(player,b)) player.x = (player.x<b.x) ? b.x-b.w/2-player.w/2 : b.x+b.w/2+player.w/2; });
+
+        player.z += player.vz;
+        cubes.forEach(b => { if(checkCol(player,b)) player.z = (player.z<b.z) ? b.z-b.d/2-player.d/2 : b.z+b.d/2+player.d/2; });
+
+        player.y += player.vy;
+        cubes.forEach(b => {
+            if(checkCol(player, b)) {
+                // SPECIAL BLOCKS
+                if(b.type === 'win') { 
+                    isWon = true; document.exitPointerLock(); winScreen.style.display = 'block'; crosshair.style.display = 'none'; return; 
+                }
+                if(b.type === 'checkpoint' && currentStage === 1) {
+                    currentStage = 2;
+                    spawn = { x: b.x, y: b.y + 20, z: b.z, yaw: 0 }; // Set new spawn
+                    showMsg("STAGE 2: LAVA SPIRAL");
+                }
+
+                // COLLISION RESOLUTION
+                if(player.vy < 0 && player.y > b.y) { player.y = b.y+b.h/2+player.h/2; player.vy = 0; player.grounded = true; }
+                else if(player.vy > 0 && player.y < b.y) { player.y = b.y-b.h/2-player.h/2; player.vy = 0; }
+            }
+        });
+
+        // Camera
+        const camTargetY = player.y + 70;
+        cam.y += (camTargetY - cam.y) * 0.1;
+        world.style.transform = `translateZ(${cam.dist}px) rotateX(${-cam.pitch}rad) rotateY(${-cam.yaw}rad) translate3d(${-player.x}px, ${cam.y}px, ${-player.z}px)`;
+
+        requestAnimationFrame(loop);
+    }
+
+    function checkCol(p, b) {
+        return (p.x-p.w/2 < b.x+b.w/2 && p.x+p.w/2 > b.x-b.w/2 && p.y-p.h/2 < b.y+b.h/2 && p.y+p.h/2 > b.y-b.h/2 && p.z-p.d/2 < b.z+b.d/2 && p.z+p.d/2 > b.z-b.d/2);
+    }
+
+    // --- INPUT ---
+    document.addEventListener('click', (e) => { if(e.target.tagName !== 'BUTTON') document.body.requestPointerLock(); });
+    document.addEventListener('pointerlockchange', () => {
+        isLocked = !!document.pointerLockElement;
+        if(!isWon) { overlay.style.display = isLocked ? 'none' : 'block'; crosshair.style.display = isLocked ? 'block' : 'none'; }
     });
-  </script>
+    document.addEventListener('mousemove', e => {
+        if(!isLocked || isWon) return;
+        cam.yaw -= e.movementX * ROT_SPEED; cam.pitch -= e.movementY * ROT_SPEED;
+        if(cam.pitch < -0.2) cam.pitch = -0.2; if(cam.pitch > 1.2) cam.pitch = 1.2;
+    });
+    window.addEventListener('keydown', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = true; if(e.code==='Space') keys.space=true; });
+    window.addEventListener('keyup', e => { if(keys.hasOwnProperty(e.key.toLowerCase())) keys[e.key.toLowerCase()] = false; if(e.code==='Space') keys.space=false; });
 
+    createPlayerModel();
+    buildLevel();
+    loop();
+</script>
 </body>
 </html>
